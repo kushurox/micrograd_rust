@@ -4,11 +4,13 @@ use value::Value;
 mod value;
 
 fn main() {
-    let t1 = Instant::now();
-    let a = Value::new(3.0);
-    let b = Value::new(4.0);
-    let mut c = a*b;
-    c.backprop();
-    let t2 = Instant::now() - t1;
-    println!("{}", t2.as_nanos());
+    let a = Value::new(2.0);
+    let b = Value::new(-3.0);
+    let c = Value::new(10.0);
+    let e = a * b;
+    let d = e + c;
+    let f = Value::new(-2.0);
+    let mut L = d * f;
+    L.backprop();
+    println!("{:#?}", L);
 }
