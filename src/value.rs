@@ -89,7 +89,7 @@ impl Mul for Value{
 }
 
 impl Value {
-    pub fn tanh(self, rhs: Self) -> Self{
+    pub fn tanh(self) -> Self{
         Value {val: self.val.tanh(), prev: [Some(Rc::new(RefCell::new(self))), None], operation: Operation::Tanh, grad:1.0}
     }
 }
