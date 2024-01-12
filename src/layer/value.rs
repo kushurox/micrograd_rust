@@ -1,4 +1,4 @@
-use std::{ops::{Add, Mul, Sub, Deref}, collections::VecDeque, rc::Rc, cell::RefCell};
+use std::{ops::{Add, Mul, Sub, Deref}, collections::VecDeque, rc::Rc, cell::RefCell, fmt::Display};
 
 type Node = Rc<RefCell<Value>>;
 
@@ -91,5 +91,11 @@ impl Mul for Value{
 impl Value {
     pub fn tanh(self) -> Self{
         Value {val: self.val.tanh(), prev: [Some(Rc::new(RefCell::new(self))), None], operation: Operation::Tanh, grad:1.0}
+    }
+}
+
+impl Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Value({})", self.val)
     }
 }
