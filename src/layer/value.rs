@@ -3,7 +3,7 @@ use std::{ops::{Add, Mul, Sub, Deref}, collections::VecDeque, rc::Rc, cell::RefC
 type Node = Rc<RefCell<Value>>;
 
 #[derive(Clone, Copy, Debug)]
-enum Operation {
+pub enum Operation {
     None,
     Add,
     Sub,
