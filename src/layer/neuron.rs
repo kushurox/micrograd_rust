@@ -24,12 +24,17 @@ impl Neuron {
         Neuron {w, b, activation}
     }
 
-    pub fn forward(&mut self) -> Value {
-        let mut res=self.w.pop().as_ref().unwrap().clone();
-        for v in self.w.iter() {
-            res = res + v.clone();
+    pub fn forward(&self, x: Vec<Value>) -> Value {
+        if x.len() != self.w.len() {
+            panic!("Inputs Lengths not matching Weight's Length");
         }
+        let mut res = self.w[0].clone() * x[0].clone();
+        for i in 1..x.len() {
+            res = res + (self.w[i].clone() * x[i].clone());
+        }
+
         res = res + self.b.clone();
+
         match self.activation {
             Operation::Tanh => res.tanh(),
             _ => panic!("Activation not implemented")
@@ -54,22 +59,23 @@ impl Layer {
         Layer {neurons}
     }
 
-    pub fn forward(&mut self) -> Vec<Value>{
-        let mut res = Vec::new();
-        while let Some(mut n) = self.neurons.pop() {
-            res.push(n.forward());
+    pub fn forward(&self, inputs: Vec::<Value>) -> Vec<Value>{
+        // inputs: outputs from previous layer
+        let mut outs = Vec::<Value>::new();
+        for n in &self.neurons {
+            outs.push(n.forward(inputs.clone()));
         }
-        res
+        outs
     }
 }
 
 impl Display for Neuron {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[ ")?;
+        write!(f, "Neuron(ws=[ ")?;
         for ws in &self.w {
             write!(f, "{} ", ws)?;
         }
-        write!(f, "]")
+        write!(f, "], b={})", self.b)
     }
 }
 

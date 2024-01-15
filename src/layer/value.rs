@@ -1,4 +1,6 @@
-use std::{ops::{Add, Mul, Sub, Deref}, collections::VecDeque, rc::Rc, cell::RefCell, fmt::Display};
+use std::{ops::{Add, Mul, Sub}, collections::VecDeque, rc::Rc, cell::RefCell, fmt::Display};
+
+use super::utils::{sigmoid, d_sigmoid, d_tanh};
 
 type Node = Rc<RefCell<Value>>;
 
@@ -8,7 +10,8 @@ pub enum Operation {
     Add,
     Sub,
     Mul,
-    Tanh
+    Tanh,
+    Sigmoid
 }
 
 
@@ -16,8 +19,8 @@ pub enum Operation {
 pub struct Value {
     pub val: f32,
     pub prev: [Option<Node>; 2],
-    operation: Operation,
-    grad: f32
+    pub operation: Operation,
+    pub grad: f32
 }
 
 
@@ -49,12 +52,22 @@ impl Value{
                 to_visit.push_back(val1.clone());
                 to_visit.push_back(val2.clone());
             } else if let [Some(val1), None] = &b2.prev {
+                let mut bind = val1.borrow_mut(); // child node
+
+                /*
+                    if y = tanh(x);
+                    y' = 1-tanh^2(x)
+                 */
+
                 match b2.operation {
                     Operation::Tanh => {
                         // derivative of tanh(x) w.r.t x = 1 - tanh^2(x)
-                        let mut bind = val1.borrow_mut();
-                        bind.grad = (1.0 - bind.val.tanh().powi(2))*b2.grad;
+                        bind.grad = d_tanh(bind.val)*b2.grad;
                     },
+                    Operation::Sigmoid => {
+                        // derivative of sigmoid(x) = sigmoid(x)[1-sigmoid(x)]
+                        bind.grad = d_sigmoid(bind.val) * b2.grad;
+                    }
                     _ => {
                         panic!("Function not implemented!");
                     }
@@ -88,9 +101,21 @@ impl Mul for Value{
     }
 }
 
+impl Mul<f32> for Value {
+    type Output=Self;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Value {val: self.val * rhs, prev: [Some(Rc::new(RefCell::new(self))), Some(Rc::new(RefCell::new(Value::new(rhs))))], operation: Operation::Mul, grad:1.0}
+        
+    }
+}
+
 impl Value {
     pub fn tanh(self) -> Self{
         Value {val: self.val.tanh(), prev: [Some(Rc::new(RefCell::new(self))), None], operation: Operation::Tanh, grad:1.0}
+    }
+    pub fn sigmoid(self) -> Self {
+        Value {val: sigmoid(self.val), prev:[Some(Rc::new(RefCell::new(self))), None], operation: Operation::Sigmoid, grad:1.0}
     }
 }
 
