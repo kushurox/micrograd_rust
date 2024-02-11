@@ -1,12 +1,15 @@
 use std::fmt::Display;
 
+
 use rand::random;
 
 use super::value::Value;
 use super::value::Operation;
 
+type Nparam=Vec<Value>;
+type Lparam=Vec<Nparam>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Neuron {
     w: Vec<Value>, // input-side edges.
     b: Value,
@@ -26,19 +29,24 @@ impl Neuron {
 
     pub fn forward(&self, x: Vec<Value>) -> Value {
         if x.len() != self.w.len() {
-            panic!("Inputs Lengths not matching Weight's Length");
+            panic!("Dimensions not matching!");
         }
-        let mut res = self.w[0].clone() * x[0].clone();
-        for i in 1..x.len() {
-            res = res + (self.w[i].clone() * x[i].clone());
+        let mut res = Value::new(0.0);
+        for (w, xi) in self.w.iter().zip(x) {
+            res = res + (w.clone() * xi);
         }
-
         res = res + self.b.clone();
-
         match self.activation {
             Operation::Tanh => res.tanh(),
-            _ => panic!("Activation not implemented")
+            Operation::Sigmoid => res.sigmoid(),
+            _ => panic!("Not implemented")
         }
+    }
+
+    pub fn parameters(&self) -> Nparam {
+        let mut params = self.w.clone();
+        params.push(self.b.clone());
+        params
     }
 }
 
@@ -61,11 +69,19 @@ impl Layer {
 
     pub fn forward(&self, inputs: Vec::<Value>) -> Vec<Value>{
         // inputs: outputs from previous layer
-        let mut outs = Vec::<Value>::new();
+        let mut results = Vec::new();
         for n in &self.neurons {
-            outs.push(n.forward(inputs.clone()));
+            results.push(n.forward(inputs.clone()));
         }
-        outs
+        results
+    }
+
+    pub fn parameters(&self) -> Lparam {
+        let mut params = Vec::new();
+        for n in &self.neurons {
+            params.push(n.parameters())
+        }
+        params
     }
 }
 

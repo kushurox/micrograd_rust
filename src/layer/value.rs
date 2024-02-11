@@ -1,12 +1,10 @@
-use std::{ops::{Add, Mul, Sub}, collections::VecDeque, rc::Rc, cell::RefCell, fmt::Display};
+use std::{cell::RefCell, fmt::Display, ops::{Add, Mul}, rc::Rc};
 
-use super::utils::{sigmoid, d_sigmoid, d_tanh};
+use super::utils::{d_sigmoid, d_tanh, sigmoid};
 
-type Node = Rc<RefCell<Value>>;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Operation {
-    None,
     Add,
     Sub,
     Mul,
@@ -15,112 +13,131 @@ pub enum Operation {
 }
 
 
-#[derive(Clone, Debug)]
-pub struct Value {
+#[derive(Debug, Clone, PartialEq)]
+pub struct ValueData {
     pub val: f32,
-    pub prev: [Option<Node>; 2],
-    pub operation: Operation,
-    pub grad: f32
+    operation: Option<Operation>,
+    pub prev: (Option<Value>, Option<Value>),
+    grad: f32
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct Value {
+    pub ptr: Rc<RefCell<ValueData>>
+}
 
-
-impl Value{
+impl Value {
     pub fn new(val: f32) -> Self {
-        Value {val, prev: [None, None], operation: Operation::None, grad: 1.0}
+        let inner = ValueData {val, operation: None, prev: (None, None), grad: 0.0};
+        Self { ptr: Rc::new(RefCell::new(inner)) }
     }
 
-    pub fn backprop(&mut self) {
-        let temp = Rc::new(RefCell::new(self.clone()));
-        let mut to_visit = VecDeque::from([temp]);
-        loop {
-            if to_visit.is_empty() {
-                break;
-            }
-            let b1 = to_visit.pop_front().unwrap();
-            let b2 = b1.borrow_mut();
-            if let [Some(val1), Some(val2)] = &b2.prev {
+    pub fn new_from(val: f32, operation: Option<Operation>, prev: (Option<Value>, Option<Value>)) -> Self {
+        let inner = ValueData {val, operation, prev, grad: 0.0};
+        Self { ptr: Rc::new(RefCell::new(inner)) }
+    }
 
-                match b2.operation {
-                    Operation::Add => {val1.borrow_mut().grad = b2.grad; val2.borrow_mut().grad = b2.grad},
-                    Operation::Sub => {val1.borrow_mut().grad = b2.grad; val2.borrow_mut().grad = -b2.grad}, // v1 - v2
-                    Operation::Mul => {val1.borrow_mut().grad = val2.borrow().val*b2.grad; val2.borrow_mut().grad = val1.borrow().val*b2.grad},
-                    _ => {
-                        panic!("Binary Operation Not implemented!");
-                    }
+    pub fn backwards(&mut self) {
+
+        let curr = self.clone();
+        curr.ptr.borrow_mut().grad = 1.0;
+        let (value1, value2) = curr.ptr.borrow().prev.clone();
+        let mut next;
+
+        match (value1, value2) {
+            (Some(v1), None) => {
+                next=vec![v1.clone()];
+                if curr.ptr.borrow().operation.unwrap() == Operation::Tanh {
+                    let dval = d_tanh(v1.ptr.borrow().val);
+                    v1.ptr.borrow_mut().grad = dval * curr.ptr.borrow().grad;
                 }
-                to_visit.push_back(val1.clone());
-                to_visit.push_back(val2.clone());
-            } else if let [Some(val1), None] = &b2.prev {
-                let mut bind = val1.borrow_mut(); // child node
-
-                /*
-                    if y = tanh(x);
-                    y' = 1-tanh^2(x)
-                 */
-
-                match b2.operation {
-                    Operation::Tanh => {
-                        // derivative of tanh(x) w.r.t x = 1 - tanh^2(x)
-                        bind.grad = d_tanh(bind.val)*b2.grad;
-                    },
-                    Operation::Sigmoid => {
-                        // derivative of sigmoid(x) = sigmoid(x)[1-sigmoid(x)]
-                        bind.grad = d_sigmoid(bind.val) * b2.grad;
-                    }
-                    _ => {
-                        panic!("Function not implemented!");
-                    }
+                else if curr.ptr.borrow().operation.unwrap() == Operation::Sigmoid {
+                    let dval =  d_sigmoid(v1.ptr.borrow().val);
+                    v1.ptr.borrow_mut().grad = dval * curr.ptr.borrow().grad;
                 }
-                to_visit.push_back(val1.clone());
+            },
+            (Some(v1), Some(v2)) => {
+                next=vec![v2.clone(), v1.clone()];
+                if curr.ptr.borrow().operation.unwrap() == Operation::Add {
+                    v1.ptr.borrow_mut().grad = curr.ptr.borrow().grad;
+                    v2.ptr.borrow_mut().grad = curr.ptr.borrow().grad;
+                }
+                else if curr.ptr.borrow().operation.unwrap() == Operation::Mul {
+                    v1.ptr.borrow_mut().grad = v2.ptr.borrow().val * curr.ptr.borrow().grad;
+                    v2.ptr.borrow_mut().grad = v1.ptr.borrow().val * curr.ptr.borrow().grad;
+                }
+            },
+            _ => return
+        }
+
+        while let Some(currv) = next.pop() {
+            let (val1, val2) = currv.ptr.borrow().prev.clone();
+
+            match (val1, val2) {
+                (None, None) => continue,
+                (None, Some(_)) => continue, // will never happen
+                (Some(v1), None) => {
+                    next.push(v1.clone());
+                    if currv.ptr.borrow().operation.unwrap() == Operation::Tanh {
+                        let dval = d_tanh(v1.ptr.borrow().val);
+                        v1.ptr.borrow_mut().grad = dval * currv.ptr.borrow().grad;
+                    }
+                    else if currv.ptr.borrow().operation.unwrap() == Operation::Sigmoid {
+                        let dval =  d_sigmoid(v1.ptr.borrow().val);
+                        v1.ptr.borrow_mut().grad = dval * currv.ptr.borrow().grad;
+                    }
+                },  // single operand
+                (Some(v1), Some(v2)) => { // binary operations
+                    next.push(v1.clone());
+                    next.push(v2.clone());
+
+                    if currv.ptr.borrow().operation.unwrap() == Operation::Add {
+                        v1.ptr.borrow_mut().grad = currv.ptr.borrow().grad;
+                        v2.ptr.borrow_mut().grad = currv.ptr.borrow().grad;
+                    }
+                    else if currv.ptr.borrow().operation.unwrap() == Operation::Mul {
+                        v1.ptr.borrow_mut().grad = v2.ptr.borrow().val * currv.ptr.borrow().grad;
+                        v2.ptr.borrow_mut().grad = v1.ptr.borrow().val * currv.ptr.borrow().grad;
+                    }
+                },
             }
 
         }
     }
+
 }
 
 
-impl Add for Value{
-    type Output = Value;
-    fn add(self, rhs: Self) -> Self::Output {
-        Value {val: self.val + rhs.val, prev: [Some(Rc::new(RefCell::new(self))), Some(Rc::new(RefCell::new(rhs)))], operation: Operation::Add, grad:1.0}
-    }
-}
 
-impl Sub for Value{
-    type Output = Value;
-    fn sub(self, rhs: Self) -> Self::Output {
-        Value {val: self.val - rhs.val, prev: [Some(Rc::new(RefCell::new(self))), Some(Rc::new(RefCell::new(rhs)))], operation: Operation::Sub, grad:1.0}
-    }
-}
-
-impl Mul for Value{
-    type Output = Value;
-    fn mul(self, rhs: Self) -> Self::Output {
-        Value {val: self.val * rhs.val, prev: [Some(Rc::new(RefCell::new(self))), Some(Rc::new(RefCell::new(rhs)))], operation: Operation::Mul, grad:1.0}
-    }
-}
-
-impl Mul<f32> for Value {
+impl Add for Value {
     type Output=Self;
 
-    fn mul(self, rhs: f32) -> Self::Output {
-        Value {val: self.val * rhs, prev: [Some(Rc::new(RefCell::new(self))), Some(Rc::new(RefCell::new(Value::new(rhs))))], operation: Operation::Mul, grad:1.0}
-        
+    fn add(self, rhs: Self) -> Self::Output {
+        let prev = (Some(self.clone()), Some(rhs.clone()));
+        Value::new_from(self.ptr.borrow().val + rhs.ptr.borrow().val, Some(Operation::Add), prev)
+    }
+}
+
+impl Mul for Value {
+    type Output=Self;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        let prev = (Some(self.clone()), Some(rhs.clone()));
+        Value::new_from(self.ptr.borrow().val * rhs.ptr.borrow().val, Some(Operation::Mul), prev)
     }
 }
 
 impl Value {
     pub fn tanh(self) -> Self{
-        Value {val: self.val.tanh(), prev: [Some(Rc::new(RefCell::new(self))), None], operation: Operation::Tanh, grad:1.0}
+        Value::new_from(self.ptr.borrow().val.tanh(), Some(Operation::Tanh), (Some(self.clone()), None))
     }
     pub fn sigmoid(self) -> Self {
-        Value {val: sigmoid(self.val), prev:[Some(Rc::new(RefCell::new(self))), None], operation: Operation::Sigmoid, grad:1.0}
+        Value::new_from(sigmoid(self.ptr.borrow().val), Some(Operation::Sigmoid), (Some(self.clone()), None))
     }
 }
 
 impl Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Value({})", self.val)
+        write!(f, "Value({}, grad={})", self.ptr.borrow().val, self.ptr.borrow().grad)
     }
 }
