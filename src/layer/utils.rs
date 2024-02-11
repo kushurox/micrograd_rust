@@ -1,3 +1,5 @@
+use super::value::Value;
+
 pub fn sigmoid(a: f32) -> f32 {
     let denom = 1.0 + (-a).exp();
     1.0/denom
@@ -9,6 +11,11 @@ pub fn d_sigmoid(a: f32) -> f32 {
 
 pub fn d_tanh(a: f32) -> f32 {
     1.0 - a.tanh().powi(2)
+}
+
+pub fn squared_diff(ypred: Value, y: Value) -> Value{
+    let temp = Value::new(2.0);
+    ypred.pow(temp.clone()) - y.pow(temp)
 }
 
 #[macro_export]

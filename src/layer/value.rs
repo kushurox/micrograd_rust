@@ -1,4 +1,4 @@
-use std::{cell::RefCell, fmt::Display, ops::{Add, Mul}, rc::Rc};
+use std::{cell::RefCell, fmt::Display, ops::{Add, Mul, Sub}, rc::Rc};
 
 use super::utils::{d_sigmoid, d_tanh, sigmoid};
 
@@ -7,6 +7,7 @@ use super::utils::{d_sigmoid, d_tanh, sigmoid};
 pub enum Operation {
     Add,
     Sub,
+    Pow,
     Mul,
     Tanh,
     Sigmoid
@@ -17,8 +18,8 @@ pub enum Operation {
 pub struct ValueData {
     pub val: f32,
     operation: Option<Operation>,
-    pub prev: (Option<Value>, Option<Value>),
-    grad: f32
+    prev: (Option<Value>, Option<Value>),
+    pub grad: f32
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -62,9 +63,18 @@ impl Value {
                     v1.ptr.borrow_mut().grad = curr.ptr.borrow().grad;
                     v2.ptr.borrow_mut().grad = curr.ptr.borrow().grad;
                 }
+                else if curr.ptr.borrow().operation.unwrap() == Operation::Sub {
+                    v1.ptr.borrow_mut().grad = -curr.ptr.borrow().grad;
+                    v2.ptr.borrow_mut().grad = -curr.ptr.borrow().grad;
+                }
                 else if curr.ptr.borrow().operation.unwrap() == Operation::Mul {
                     v1.ptr.borrow_mut().grad = v2.ptr.borrow().val * curr.ptr.borrow().grad;
                     v2.ptr.borrow_mut().grad = v1.ptr.borrow().val * curr.ptr.borrow().grad;
+                }
+                else if curr.ptr.borrow().operation.unwrap() == Operation::Pow {
+                    let tval = v1.ptr.borrow().val;
+                    v1.ptr.borrow_mut().grad = (v2.ptr.borrow().val * tval).powf(v2.ptr.borrow().val-1.0);
+                    // not implementing grad for exponent part
                 }
             },
             _ => return
@@ -95,9 +105,18 @@ impl Value {
                         v1.ptr.borrow_mut().grad = currv.ptr.borrow().grad;
                         v2.ptr.borrow_mut().grad = currv.ptr.borrow().grad;
                     }
+                    else if currv.ptr.borrow().operation.unwrap() == Operation::Sub {
+                        v1.ptr.borrow_mut().grad = -currv.ptr.borrow().grad;
+                        v2.ptr.borrow_mut().grad = -currv.ptr.borrow().grad;
+                    }
                     else if currv.ptr.borrow().operation.unwrap() == Operation::Mul {
                         v1.ptr.borrow_mut().grad = v2.ptr.borrow().val * currv.ptr.borrow().grad;
                         v2.ptr.borrow_mut().grad = v1.ptr.borrow().val * currv.ptr.borrow().grad;
+                    }
+                    else if currv.ptr.borrow().operation.unwrap() == Operation::Pow {
+                        let tval = v1.ptr.borrow().val;
+                        v1.ptr.borrow_mut().grad = (v2.ptr.borrow().val * tval).powf(v2.ptr.borrow().val-1.0);
+                        // not implementing grad for exponent part
                     }
                 },
             }
@@ -118,6 +137,15 @@ impl Add for Value {
     }
 }
 
+impl Sub for Value {
+    type Output=Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        let prev = (Some(self.clone()), Some(rhs.clone()));
+        Value::new_from(self.ptr.borrow().val - rhs.ptr.borrow().val, Some(Operation::Sub), prev)
+    }
+}
+
 impl Mul for Value {
     type Output=Self;
 
@@ -133,6 +161,9 @@ impl Value {
     }
     pub fn sigmoid(self) -> Self {
         Value::new_from(sigmoid(self.ptr.borrow().val), Some(Operation::Sigmoid), (Some(self.clone()), None))
+    }
+    pub fn pow(self, exp: Value) -> Self {
+        Value::new_from(self.ptr.borrow().val.powf(exp.ptr.borrow().val), Some(Operation::Pow), (Some(self.clone()), Some(exp.clone())))
     }
 }
 
