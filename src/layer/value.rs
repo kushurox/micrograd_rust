@@ -73,7 +73,7 @@ impl Value {
                 }
                 else if curr.ptr.borrow().operation.unwrap() == Operation::Pow {
                     let tval = v1.ptr.borrow().val;
-                    v1.ptr.borrow_mut().grad = (v2.ptr.borrow().val * tval).powf(v2.ptr.borrow().val-1.0);
+                    v1.ptr.borrow_mut().grad = (v2.ptr.borrow().val * tval).powf(v2.ptr.borrow().val-1.0) * curr.ptr.borrow().grad;
                     // not implementing grad for exponent part
                 }
             },
@@ -115,7 +115,7 @@ impl Value {
                     }
                     else if currv.ptr.borrow().operation.unwrap() == Operation::Pow {
                         let tval = v1.ptr.borrow().val;
-                        v1.ptr.borrow_mut().grad = (v2.ptr.borrow().val * tval).powf(v2.ptr.borrow().val-1.0);
+                        v1.ptr.borrow_mut().grad = (v2.ptr.borrow().val * tval).powf(v2.ptr.borrow().val-1.0) * currv.ptr.borrow().grad;
                         // not implementing grad for exponent part
                     }
                 },

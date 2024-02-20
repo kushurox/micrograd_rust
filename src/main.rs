@@ -3,6 +3,7 @@ use std::cell::RefCell;
 
 use micrograd_rust::layer::neuron::Layer;
 use micrograd_rust::layer::neuron::Neuron;
+use micrograd_rust::layer::utils::distance;
 use micrograd_rust::layer::utils::squared_diff;
 use micrograd_rust::layer::value::Value;
 use micrograd_rust::layer::value::Operation;
@@ -10,7 +11,7 @@ use micrograd_rust::mlp::mlp::MLP;
 
 fn main() {
     let mut my_model = MLP::new(2, 1, 1);
-    my_model.config(0.1, squared_diff);
+    my_model.config(0.1, distance);
     let x_train = vec![
         vec![Value::new(1.0), Value::new(2.0)],
         vec![Value::new(1.0), Value::new(2.0)],
@@ -27,7 +28,9 @@ fn main() {
         println!("--------------------------------------------")
     }
 
-    my_model.train(x_train, y_train);
+    for _ in 0..5{
+        my_model.train(x_train.clone(), y_train.clone());
+    }
 
     
 }

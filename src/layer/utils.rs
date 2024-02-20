@@ -18,6 +18,10 @@ pub fn squared_diff(ypred: Value, y: Value) -> Value{
     ypred.pow(temp.clone()) - y.pow(temp)
 }
 
+pub fn distance(ypred: Value, y: Value) -> Value {
+    (ypred - y).pow(Value::new(2.0))
+}
+
 #[macro_export]
 macro_rules! layer_inputs {
     // Base case: empty vector

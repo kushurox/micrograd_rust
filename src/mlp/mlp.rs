@@ -40,8 +40,8 @@ impl MLP {
         for (inputs, output) in x_train.into_iter().zip(y_train) {
             let res = self.forward(inputs);
             let mut cost = (self.loss)(res, output);
-            println!("Cost: {}", cost);
             cost.backwards();
+            println!("Cost: {}", cost);
             for lparam in &mut params {
                 for nparam in lparam {
                     for vparam in nparam {
