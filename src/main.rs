@@ -1,12 +1,5 @@
-use std::rc::Rc;
-use std::cell::RefCell;
-
-use micrograd_rust::layer::neuron::Layer;
-use micrograd_rust::layer::neuron::Neuron;
 use micrograd_rust::layer::utils::distance;
-use micrograd_rust::layer::utils::squared_diff;
 use micrograd_rust::layer::value::Value;
-use micrograd_rust::layer::value::Operation;
 use micrograd_rust::mlp::mlp::MLP;
 
 fn main() {

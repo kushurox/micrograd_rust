@@ -3,7 +3,7 @@ pub mod mlp;
 
 #[cfg(test)]
 mod tests {
-    use crate::layer::{utils::{sigmoid, d_sigmoid}, value::Value, neuron::Neuron};
+    use crate::layer::utils::sigmoid;
 
     #[test]
     fn sig_test() {
